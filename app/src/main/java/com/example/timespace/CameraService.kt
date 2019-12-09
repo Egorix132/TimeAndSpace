@@ -32,7 +32,6 @@ private var mCameraManager: CameraManager? = null
 private val cam1 = 0
 private val cam2 = 1
 var numberFrame = 0
-//val outputFrames = Array<Bitmap>(1080){ Bitmap.createBitmap(30,1920, Bitmap.Config.RGB_565)}
 val mWidth = 1920
 val mHeight = 1080
 var isPixeled = false
@@ -147,20 +146,11 @@ class CameraService(
                     activity.recording = false
                     stopRecordingVideo()
                 }
-                //image.close()
             },
             mBackgroundHandler)
 
         val texture : SurfaceTexture = mImageView.surfaceTexture
         texture.setDefaultBufferSize(1920,1080)
-        /*texture.setOnFrameAvailableListener {
-            object : SurfaceTexture.OnFrameAvailableListener{
-                override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-                    var mat = surfaceTexture!!.getTransformMatrix()
-                    EGL15.eglCreatePlatformWindowSurface(surfaceTexture)
-                }
-            }
-        }*/
         val surface = Surface(texture)
         val recordSurface = mMediaRecorder.surface
 
@@ -197,9 +187,6 @@ class CameraService(
         startTime = Calendar.getInstance().time.time
         startCameraRecordSession()
         mMediaRecorder.start()
-        if(typeCapturing ==2){
-
-        }
     }
     fun stopRecordingVideo() {
         try {
@@ -249,17 +236,6 @@ class CameraService(
             Log.e("errrr", "не запустили медиа рекордер")
         }
     }
-
-
-
-    /*private fun getYUV2Mat(data: ByteArray, image: Image): Mat {
-        val mYuv = Mat(image.height + image.height / 2, image.width, CV_8UC1)
-        mYuv.put(0, 0, data)
-        val mRGB = Mat()
-        cvtColor(mYuv, mRGB, COLOR_YUV2RGB_NV21, 3)
-        return mRGB
-    }*/
-
 }
 
 private fun Bitmap.rotate(degrees: Float): Bitmap {
@@ -284,22 +260,10 @@ class makeFrames(private var image:Image, private val numberOfFrame:Int):Runnabl
         )
         bitmap.copyPixelsFromBuffer(buffer)
         bitmap = bitmap.copy(Bitmap.Config.RGB_565, false)
-        //bitmap.config = Bitmap.Config.RGB_565
         if(typeCapturing==1) {
             frames.add(bitmap.rotate(90f))
         }
-        else if(numberOfFrame>=stride){
-            var index = height-1
-            while (index >= height/stride) {
-                val pixels = IntArray(width) { 0 }
-                bitmap.getPixels(pixels, 0, width, 0, index, width-1, 1)
-                frames[numberOfFrame-((stride*index)/ height)].setPixels(pixels, 0, width, 0, index, width-1, 1)
-                index--
-            }
-        }
-        else{
-            frames.add(bitmap)
-        }
+        frames.add(bitmap)
         readyFrames++
         if(readyFrames == numberFrame-1)
             isPixeled = true
