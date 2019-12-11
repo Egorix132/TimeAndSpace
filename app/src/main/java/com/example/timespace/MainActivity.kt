@@ -1,10 +1,10 @@
 package com.example.timespace
 
-import MSurfaceTextureListener
 import android.Manifest
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraManager
 import android.media.MediaRecorder
 import android.os.Bundle
@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 
 var typeCapturing = 1
+val threads = Array<MyWorkerThread?>(8) { null }
 
 class MainActivity : AppCompatActivity() {
 
@@ -159,9 +160,28 @@ class MainActivity : AppCompatActivity() {
     private fun initialize(){
         camManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
 
-        surfaceTextureListener = MSurfaceTextureListener()
+        //surfaceTextureListener = MSurfaceTextureListener()
         mImageView = findViewById(R.id.textureView)
-        mImageView.surfaceTextureListener = surfaceTextureListener
+        //mImageView.surfaceTextureListener = surfaceTextureListener
+        mImageView.surfaceTextureListener = object : SurfaceTextureListener{
+            var isAvailable = false
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture?): Boolean {
+                return true
+            }
+
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {
+                if(recording){
+                    frames.add(mImageView.bitmap)
+                }
+            }
+
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture?, width: Int, height: Int) {
+            }
+
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture?, width: Int, height: Int) {
+                isAvailable = true
+            }
+        }
         buttonRecord = findViewById(R.id.button6)
         switchButton = findViewById(R.id.switchButton)
 
