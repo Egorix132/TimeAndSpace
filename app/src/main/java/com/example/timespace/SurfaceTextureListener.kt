@@ -9,6 +9,7 @@ open class MSurfaceTextureListener : TextureView.SurfaceTextureListener {
     }
 
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {
+
     }
 
     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture?, width: Int, height: Int) {

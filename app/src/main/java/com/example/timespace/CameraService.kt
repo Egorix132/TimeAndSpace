@@ -5,17 +5,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
-import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
-import android.media.CamcorderProfile
 import android.media.Image
 import android.media.ImageReader
 import android.media.MediaRecorder
-import android.os.Environment
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
@@ -67,7 +64,7 @@ class CameraService(
         {
             if (checkSelfPermission(activity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
             {
-                setUpMediaRecorder()
+                //setUpMediaRecorder()
                 mCameraManager!!.openCamera(mCameraID, mCameraCallback, mBackgroundHandler)
             }
         }
@@ -135,7 +132,7 @@ class CameraService(
     }
 
     private fun startCameraRecordSession() {
-        mImageReader = ImageReader.newInstance(mWidth,mHeight, PixelFormat.RGBA_8888,20)
+        /*mImageReader = ImageReader.newInstance(mWidth,mHeight, PixelFormat.RGBA_8888,20)
         mImageReader.setOnImageAvailableListener(
             { reader ->
                 val image = reader!!.acquireLatestImage()
@@ -148,20 +145,24 @@ class CameraService(
                 }
             },
             mBackgroundHandler)
-
+*/
         val texture : SurfaceTexture = mImageView.surfaceTexture
         texture.setDefaultBufferSize(1920,1080)
         val surface = Surface(texture)
-        val recordSurface = mMediaRecorder.surface
+
+        texture.setOnFrameAvailableListener {
+
+        }
+        //val recordSurface = mMediaRecorder.surface
 
         try {
             val builder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
             builder.addTarget(surface)
-            builder.addTarget(recordSurface)
-            builder.addTarget(mImageReader.surface)
+            /*builder.addTarget(recordSurface)
+            builder.addTarget(mImageReader.surface)*/
 
             mCameraDevice!!.createCaptureSession(
-                listOf(surface, recordSurface, mImageReader.surface),
+                listOf(surface/*, recordSurface, mImageReader.surface*/),
                 object : CameraCaptureSession.StateCallback() {
 
                     override fun onConfigured(session: CameraCaptureSession) {
@@ -186,7 +187,7 @@ class CameraService(
         numberFrame = 0
         startTime = Calendar.getInstance().time.time
         startCameraRecordSession()
-        mMediaRecorder.start()
+        //mMediaRecorder.start()
     }
     fun stopRecordingVideo() {
         try {
@@ -196,8 +197,8 @@ class CameraService(
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         }
-        mMediaRecorder.stop()
-        mMediaRecorder.release()
+        /*mMediaRecorder.stop()
+        mMediaRecorder.release()*/
 
         originalVideoDuration =  Calendar.getInstance().time.time - startTime
         videoDuration = frames.size
@@ -208,10 +209,10 @@ class CameraService(
 
         startActivity(activity, watchVideo, null)
 
-        setUpMediaRecorder()
+        //setUpMediaRecorder()
     }
 
-    private fun setUpMediaRecorder() {
+    /*private fun setUpMediaRecorder() {
         mMediaRecorder = MediaRecorder()
         mMediaRecorder.setOrientationHint(90)
 
@@ -235,7 +236,7 @@ class CameraService(
         } catch (e: Exception) {
             Log.e("errrr", "не запустили медиа рекордер")
         }
-    }
+    }*/
 }
 
 private fun Bitmap.rotate(degrees: Float): Bitmap {
