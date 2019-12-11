@@ -41,14 +41,14 @@ class DistortedVideoActivity : AppCompatActivity() {
         setContentView(R.layout.distorted_video)
         initialize()
 
-        uri = intent.getStringExtra("uri")!!
+        //uri = intent.getStringExtra("uri")!!
 
         mCurrentFile = File(
             getExternalFilesDir(Environment.DIRECTORY_DCIM),
             "test${Date().time}.mp4")
-        Log.e("durationOriginal",originalVideoDuration.toString())
+        //Log.e("durationOriginal",originalVideoDuration.toString())
         if(typeCapturing==2){
-            FPS = (frames.size/ (originalVideoDuration/1000)).toFloat()
+            //FPS = (frames.size/ (originalVideoDuration/1000)).toFloat()
             width = 1920
             height = 1080
         }

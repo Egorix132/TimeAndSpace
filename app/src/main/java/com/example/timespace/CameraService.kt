@@ -109,7 +109,7 @@ class CameraService(
         val surface = Surface(texture)
 
         try {
-            val builder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+            val builder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
             builder.addTarget(surface)
             mCameraDevice!!.createCaptureSession(
                 listOf(surface),
@@ -239,7 +239,7 @@ class CameraService(
     }*/
 }
 
-private fun Bitmap.rotate(degrees: Float): Bitmap {
+fun Bitmap.rotate(degrees: Float): Bitmap {
     val matrix = Matrix().apply { postRotate(degrees) }
     return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
 }

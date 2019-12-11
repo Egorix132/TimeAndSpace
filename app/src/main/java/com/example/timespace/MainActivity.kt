@@ -190,7 +190,7 @@ class MainActivity : AppCompatActivity() {
 
         buttonRecord.setOnClickListener {
             if(!recording) {
-                myCameras[curCam].startRecordingVideo()
+                //myCameras[curCam].startRecordingVideo()
                 recording = true
                 if(typeCapturing==2){
                     Thread {
@@ -211,7 +211,7 @@ class MainActivity : AppCompatActivity() {
                         val watchVideo = Intent(this, DistortedVideoActivity::class.java)
                         ContextCompat.startActivity(this, watchVideo, null)
                         newActivity = true
-                        myCameras[curCam].stopRecordingVideo()
+                        //myCameras[curCam].stopRecordingVideo()
                     }
                 }
             }
@@ -229,4 +229,11 @@ class MainActivity : AppCompatActivity() {
     }
 
 }
+
+class RotateFrames(private var frame:Int):Runnable {
+    override fun run() {
+        frames[frame] = frames[frame]!!.rotate(270f)
+    }
+}
+
 
