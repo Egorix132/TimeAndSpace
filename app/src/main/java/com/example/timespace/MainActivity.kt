@@ -2,6 +2,7 @@ package com.example.timespace
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
@@ -19,6 +20,8 @@ import androidx.core.content.ContextCompat
 
 var typeCapturing = 1
 val threads = Array<MyWorkerThread?>(8) { null }
+var isRotated = false
+var newActivity = false
 
 class MainActivity : AppCompatActivity() {
 
@@ -186,12 +189,31 @@ class MainActivity : AppCompatActivity() {
         switchButton = findViewById(R.id.switchButton)
 
         buttonRecord.setOnClickListener {
-            recording = if(!recording) {
+            if(!recording) {
                 myCameras[curCam].startRecordingVideo()
-                true
+                recording = true
+                if(typeCapturing==2){
+                    Thread {
+                        var i =0
+                        while(recording ||frames.size > i){
+                            if(frames.size > i){
+                                threads[i%4]!!.postTask(RotateFrames(i))
+                                i++
+                            }
+                        }
+                        isRotated = true
+                    }.start()
+                }
             } else{
-                myCameras[curCam].stopRecordingVideo()
-                false
+                recording = false
+                while(!newActivity) {
+                    if(isRotated) {
+                        val watchVideo = Intent(this, DistortedVideoActivity::class.java)
+                        ContextCompat.startActivity(this, watchVideo, null)
+                        newActivity = true
+                        myCameras[curCam].stopRecordingVideo()
+                    }
+                }
             }
         }
         switchButton.setOnClickListener {
