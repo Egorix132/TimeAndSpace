@@ -68,6 +68,12 @@ class MainActivity : AppCompatActivity() {
         getPermissions()
         initialize()
 
+        for (thread in threads.indices) {
+            threads[thread] = MyWorkerThread("Thread #$thread")
+            threads[thread]!!.start()
+            threads[thread]!!.prepareHandler()
+        }
+
         /*try {
             for (camId in camManager.cameraIdList) {
                 // Получение списка камер с устройства
