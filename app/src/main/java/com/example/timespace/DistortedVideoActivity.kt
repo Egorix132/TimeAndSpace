@@ -26,6 +26,8 @@ const val stride = 45
 var width = 1080
 var height = 1920
 var FPS = 15f
+var realWidth = 0
+var realHeight = 0
 
 
 class DistortedVideoActivity : AppCompatActivity() {
@@ -52,6 +54,9 @@ class DistortedVideoActivity : AppCompatActivity() {
             width = 1920
             height = 1080
         }
+        realWidth = frames[0]!!.width
+        realHeight = frames[0]!!.height
+        Log.e("real", "$realWidth $realHeight")
         Log.e("FPS",FPS.toString())
         mEncoderConfig = HevcEncoderConfig(mCurrentFile.absolutePath,width,height, FPS,2000000)
 

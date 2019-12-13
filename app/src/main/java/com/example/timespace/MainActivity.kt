@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
+import android.hardware.camera2.CameraAccessException
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.media.MediaRecorder
 import android.os.Bundle
@@ -22,6 +24,7 @@ var typeCapturing = 1
 val threads = Array<MyWorkerThread?>(8) { null }
 var isRotated = false
 var newActivity = false
+var maxFPS = Range(0,0)
 
 class MainActivity : AppCompatActivity() {
 
@@ -78,19 +81,21 @@ class MainActivity : AppCompatActivity() {
             threads[thread]!!.prepareHandler()
         }
 
-        /*try {
+        try {
             for (camId in camManager.cameraIdList) {
                 // Получение списка камер с устройства
                 val id = Integer.parseInt(camId)
 
                 // создаем обработчик для камеры
-                myCameras.add(id, CameraService(camManager, camId, this, mImageView, mBackgroundHandler))
+                //myCameras.add(id, CameraService(camManager, camId, this, mImageView, mBackgroundHandler))
                 var char = camManager.getCameraCharacteristics(camId)
+                char.get()
+
                 Log.e("addcam", myCameras[cam1].toString())
             }
         } catch (e: CameraAccessException){
             e.printStackTrace()
-        }*/
+        }
         myCameras.add(0, CameraService(camManager, "0", this, mImageView, mBackgroundHandler))
 
 
@@ -206,13 +211,19 @@ class MainActivity : AppCompatActivity() {
                 }
             } else{
                 recording = false
-                while(!newActivity) {
-                    if(isRotated) {
-                        val watchVideo = Intent(this, DistortedVideoActivity::class.java)
-                        ContextCompat.startActivity(this, watchVideo, null)
-                        newActivity = true
-                        //myCameras[curCam].stopRecordingVideo()
+                if(typeCapturing==2) {
+                    while (!newActivity) {
+                        if (isRotated) {
+                            val watchVideo = Intent(this, DistortedVideoActivity::class.java)
+                            ContextCompat.startActivity(this, watchVideo, null)
+                            newActivity = true
+                            //myCameras[curCam].stopRecordingVideo()
+                        }
                     }
+                }
+                else{
+                    val watchVideo = Intent(this, DistortedVideoActivity::class.java)
+                    ContextCompat.startActivity(this, watchVideo, null)
                 }
             }
         }
