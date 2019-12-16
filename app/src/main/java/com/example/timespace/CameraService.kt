@@ -1,30 +1,25 @@
 package com.example.timespace
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
-import android.hardware.camera2.CameraAccessException
-import android.hardware.camera2.CameraCaptureSession
-import android.hardware.camera2.CameraDevice
-import android.hardware.camera2.CameraManager
-import android.media.Image
+import android.hardware.camera2.*
 import android.media.ImageReader
 import android.media.MediaRecorder
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
 import androidx.core.content.ContextCompat.checkSelfPermission
-import androidx.core.content.ContextCompat.startActivity
-import androidx.core.net.toUri
+import java.io.ByteArrayOutputStream
 import java.io.File
-import java.util.*
 import kotlin.properties.Delegates
 
 
-var frames = arrayListOf<Bitmap>()
+var inputBitmaps = arrayListOf<Bitmap?>()
+const val numOfStreams = 800
+var compressedBitmaps = Array<ByteArrayOutputStream?>(numOfStreams){ ByteArrayOutputStream() }
 private var mCameraManager: CameraManager? = null
 private val cam1 = 0
 private val cam2 = 1
@@ -35,6 +30,8 @@ var isPixeled = false
 var originalVideoDuration by Delegates.notNull<Long>()
 var startTime by Delegates.notNull<Long>()
 var readyFrames = 0
+private var mPreviewSessionHighSpeed: CameraConstrainedHighSpeedCaptureSession? = null
+
 class CameraService(
     cameraManager: CameraManager,
     cameraID:String,
@@ -105,27 +102,68 @@ class CameraService(
 
     private fun createCameraPreviewSession() {
         val texture : SurfaceTexture = mImageView.surfaceTexture
-        texture.setDefaultBufferSize(1920,1080)
-        val surface = Surface(texture)
+        Log.e("FPS", CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE.toString()+"  $highSpeed ${maxFPS.upper} ${maxFPS.lower}")
 
         try {
-            val builder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-            builder.addTarget(surface)
-            mCameraDevice!!.createCaptureSession(
-                listOf(surface),
-                object : CameraCaptureSession.StateCallback() {
+            /*if(highSpeed){
+                texture.setDefaultBufferSize(1920,1080)
+                val surface = Surface(texture)
+                //Log.e("highSpeed supporting", mCameraDevice!!.isSessionConfigurationSupported().toString())
+                val builder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                builder.addTarget(surface)
+                mCameraDevice!!.createConstrainedHighSpeedCaptureSession(
+                    listOf(surface),
+                    object : CameraCaptureSession.StateCallback() {
 
-                    override fun onConfigured(session: CameraCaptureSession) {
-                        mSession = session
-                        try {
-                            mSession.setRepeatingRequest(builder.build(), null, mBackgroundHandler)
-                        } catch (e: CameraAccessException) {
-                            e.printStackTrace()
+                        override fun onConfigured(session: CameraCaptureSession) {
+                            mPreviewSessionHighSpeed= session as CameraConstrainedHighSpeedCaptureSession
+                            try {
+                                setUpCaptureRequestBuilder(builder)
+                                val thread = HandlerThread("CameraPreview")
+                                thread.start()
+                                val mPreviewBuilderBurst: List<CaptureRequest> =
+                                    mPreviewSessionHighSpeed!!.createHighSpeedRequestList(
+                                        builder.build()
+                                    )
+                                mPreviewSessionHighSpeed!!.setRepeatingBurst(
+                                    mPreviewBuilderBurst,
+                                    null,
+                                    mBackgroundHandler
+                                )
+                            } catch (e: CameraAccessException) {
+                                e.printStackTrace()
+                            }
                         }
-                    }
-                    override fun onConfigureFailed(session: CameraCaptureSession) {}
-                }, mBackgroundHandler
-            )
+                        override fun onConfigureFailed(session: CameraCaptureSession) {}
+                    }, mBackgroundHandler
+                )
+            }
+            else {*/
+                texture.setDefaultBufferSize(1920,1080)
+                val surface = Surface(texture)
+                val builder = mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                builder.addTarget(surface)
+                mCameraDevice!!.createCaptureSession(
+                    listOf(surface),
+                    object : CameraCaptureSession.StateCallback() {
+
+                        override fun onConfigured(session: CameraCaptureSession) {
+                            mSession = session
+                            try {
+                                mSession.setRepeatingRequest(
+                                    builder.build(),
+                                    null,
+                                    mBackgroundHandler
+                                )
+                            } catch (e: CameraAccessException) {
+                                e.printStackTrace()
+                            }
+                        }
+
+                        override fun onConfigureFailed(session: CameraCaptureSession) {}
+                    }, mBackgroundHandler
+                )
+            //}
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         }
@@ -147,12 +185,8 @@ class CameraService(
             mBackgroundHandler)
 */
         val texture : SurfaceTexture = mImageView.surfaceTexture
-        texture.setDefaultBufferSize(1920,1080)
+        texture.setDefaultBufferSize(mImageView.width,mImageView.height)
         val surface = Surface(texture)
-
-        texture.setOnFrameAvailableListener {
-
-        }
         //val recordSurface = mMediaRecorder.surface
 
         try {
@@ -183,7 +217,7 @@ class CameraService(
 
     }
 
-    fun startRecordingVideo(){
+    /*fun startRecordingVideo(){
         numberFrame = 0
         startTime = Calendar.getInstance().time.time
         startCameraRecordSession()
@@ -210,7 +244,7 @@ class CameraService(
         startActivity(activity, watchVideo, null)
 
         //setUpMediaRecorder()
-    }
+    }*/
 
     /*private fun setUpMediaRecorder() {
         mMediaRecorder = MediaRecorder()
@@ -244,7 +278,7 @@ fun Bitmap.rotate(degrees: Float): Bitmap {
     return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
 }
 
-class makeFrames(private var image:Image, private val numberOfFrame:Int):Runnable {
+/*class makeFrames(private var image:Image, private val numberOfFrame:Int):Runnable {
     override fun run() {
         val planes = image.planes
         val buffer = planes[0].buffer
@@ -271,6 +305,13 @@ class makeFrames(private var image:Image, private val numberOfFrame:Int):Runnabl
         image.close()
     }
 }
+
+fun setUpCaptureRequestBuilder(builder: CaptureRequest.Builder) { //        Range<Integer> fpsRange = Range.create(240, 240);
+    builder.set(
+        CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+        maxFPS
+    )
+}*/
 
 
 
