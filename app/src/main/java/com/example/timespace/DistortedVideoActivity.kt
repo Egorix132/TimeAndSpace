@@ -19,7 +19,7 @@ import java.io.File
 import java.util.*
 import kotlin.properties.Delegates
 
-
+var outputBitmaps = arrayListOf<Bitmap?>()
 var videoDuration by Delegates.notNull<Int>()
 var kStrech by Delegates.notNull<Int>()
 var outputFrames2 = Array<Bitmap?>(1080) {null}
@@ -68,29 +68,29 @@ class DistortedVideoActivity : AppCompatActivity() {
 
         /*realWidth = frames[0]!!.width
         realHeight = frames[0]!!.height*/
-        Log.e("real", "$realWidth $realHeight")
-        Log.e("FPS",FPS.toString())
+        //Log.e("real", "$realWidth $realHeight")
+        //Log.e("FPS",FPS.toString())
 
 
-        Log.e("frames", inputBitmaps.size.toString())
-        videoDuration = inputBitmaps.size
-        if(videoDuration%2 != 0) videoDuration--
+        Log.e("frames", "$capturedFrames")
+        videoDuration = capturedFrames
+
         if(typeCapturing==2){
             //FPS = (frames.size/ (originalVideoDuration/1000)).toFloat()
             width = 1920
             height = 1080
+            videoDuration = capturedFrames
             numberOfOutputFrames = videoDuration-stride
         }
-
+        else{
+            videoDuration = inputFrames.size
+            kStrech = 1080/videoDuration
+        }
         Log.e("duration", videoDuration.toString())
-        var indexWidth = 0
-        kStrech = 1080/videoDuration
+        //if(videoDuration%2 != 0) videoDuration--
 
 
         startProgressBar()
-
-
-
 
         EncodeFrames(mCurrentFile.absolutePath, "encoder", this).start()
 
@@ -147,11 +147,11 @@ class RollingShutter(private var numberFrame:Int):Runnable {
         var index = 0
         while (index < height) {
             val pixels = IntArray(width) { 0 }
-            inputBitmaps[numberFrame+index/(height/stride)]!!.getPixels(pixels, 0, width, 0, index, width-1, 1)
+            outputBitmaps[numberFrame+index/(height/stride)]!!.getPixels(pixels, 0, width, 0, index, width-1, 1)
             bitmap.setPixels(pixels, 0, width, 0, index, width-1, 1)
             index++
         }
-        inputBitmaps[numberFrame] = null
+        outputBitmaps[numberFrame] = null
         outputFrames2[numberFrame] = bitmap
     }
 }
@@ -162,7 +162,7 @@ class ChangeTimeSpace(private var indexWidth:Int):Runnable {
         var index = 0
         while (index < videoDuration) {
             val pixels = IntArray(1920) { 0 }
-            inputBitmaps[index]!!.getPixels(pixels, 0, 1, indexWidth, 0, 1, height)
+            inputFrames[index]!!.getPixels(pixels, 0, 1, indexWidth, 0, 1, height)
             for(i in 0 until kStrech)
                 bitmap.setPixels(pixels, 0, 1, index*kStrech+i, 0, 1, height)
             index++
@@ -205,8 +205,8 @@ class EncodeFrames (private val path:String, name:String, private val activity: 
         frameEncoder.release()
         isRendered = true
         activity.runOnUiThread{
-            inputBitmaps = arrayListOf()
-            compressedBitmaps = Array<ByteArrayOutputStream?>(numOfStreams){ ByteArrayOutputStream() }
+            inputFrames = arrayListOf()
+            compressedBitmaps = Array(numOfStreams){ ByteArrayOutputStream() }
             Log.e("watch", "$iterator")
             progressBar.visibility = View.GONE
             videoView.visibility = View.VISIBLE
@@ -223,6 +223,7 @@ class RenderFrames (name:String) : HandlerThread(name) {
     }
     var i =0
     override fun run() {
+        while(!isRotated) {}
         if(typeCapturing==1) {
             while (i < numberOfOutputFrames) {
                 if (iterator > i - numTreads) {
@@ -232,15 +233,16 @@ class RenderFrames (name:String) : HandlerThread(name) {
             }
         }
         else{
-            while(!isRotated) {}
             for(i in 0 until stride){
                 val byteArray: ByteArray = compressedBitmaps[i]!!.toByteArray()
-                inputBitmaps[i] = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+                outputBitmaps.add(BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size).rotate(270f))
+                compressedBitmaps[i]!!.reset()
             }
             while (i < numberOfOutputFrames) {
                 if (iterator > i - numTreads) {
                     val byteArray: ByteArray = compressedBitmaps[i+stride]!!.toByteArray()
-                    inputBitmaps[i+ stride] = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+                    outputBitmaps.add(BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size).rotate(270f))
+                    compressedBitmaps[i]!!.reset()
                     threads[i % numTreads]!!.postTask(RollingShutter(i))
                     i++
                 }

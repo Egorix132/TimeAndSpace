@@ -1,6 +1,7 @@
 package com.example.timespace
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
@@ -19,18 +20,22 @@ import android.util.Log
 import android.util.Range
 import android.view.TextureView
 import android.view.TextureView.SurfaceTextureListener
-import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import java.io.ByteArrayOutputStream
 
+
+var inputBitmaps = Array<Bitmap?>(200){null}
+var inputFrames = arrayListOf<Bitmap?>()
+const val numOfStreams = 1000
+var compressedBitmaps = Array<ByteArrayOutputStream?>(numOfStreams){ ByteArrayOutputStream() }
 
 var typeCapturing = 1
 const val numTreads = 8
 val threads = Array<RenderThread?>(numTreads) { null }
 var isRotated = false
-var newActivity = false
 var maxFPS = Range(0,0)
 var highSpeed = false
 var numberOfRotatedFrames = 0
@@ -83,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var mInfo: ActivityManager.MemoryInfo
 
 
+    @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -125,9 +131,6 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace()
         }
         myCameras.add(0, CameraService(camManager, "0", this, mImageView, mBackgroundHandler))
-
-
-
 
         Thread{
             do {
@@ -212,29 +215,76 @@ class MainActivity : AppCompatActivity() {
             if(!recording) {
                 recording = true
                 startTimer()
-                mImageView.surfaceTextureListener = object : SurfaceTextureListener{
-                    var isAvailable = false
-                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture?): Boolean {
-                        return true
+                if(typeCapturing==2) {
+                    mImageView.surfaceTextureListener = object : SurfaceTextureListener {
+                        var isAvailable = false
+                        override fun onSurfaceTextureDestroyed(surface: SurfaceTexture?): Boolean {
+                            return true
+                        }
+
+                        override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {
+                            inputBitmaps[capturedFrames % 200] = mImageView.getBitmap(1080, 1920)
+                            capturedFrames++
+                        }
+
+                        override fun onSurfaceTextureSizeChanged(
+                            surface: SurfaceTexture?,
+                            width: Int,
+                            height: Int
+                        ) {
+                        }
+
+                        override fun onSurfaceTextureAvailable(
+                            surface: SurfaceTexture?,
+                            width: Int,
+                            height: Int
+                        ) {
+                            isAvailable = true
+                        }
                     }
 
-                    override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {
-                        inputBitmaps.add(mImageView.getBitmap(1080,1920))
-                    }
-
-                    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture?, width: Int, height: Int) {
-                    }
-
-                    override fun onSurfaceTextureAvailable(surface: SurfaceTexture?, width: Int, height: Int) {
-                        isAvailable = true
-                    }
-                }
-                if(typeCapturing==2){
                     Thread {
-                        var i =0
-                        while(recording || numberOfRotatedFrames<inputBitmaps.size-1){
-                            if(inputBitmaps.size > i){
-                                threads[i%4]!!.postTask(RotateFrames(i))
+                        var i = 0
+                        while (recording || numberOfRotatedFrames < capturedFrames - 1) {
+                            if (capturedFrames > i) {
+                                threads[i % 4]!!.postTask(RotateFrames(i))
+                                i++
+                            }
+                        }
+                        isRotated = true
+                    }.start()
+                }
+                else{
+                    mImageView.surfaceTextureListener = object : SurfaceTextureListener {
+                        var isAvailable = false
+                        override fun onSurfaceTextureDestroyed(surface: SurfaceTexture?): Boolean {
+                            return true
+                        }
+
+                        override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {
+                            inputFrames.add(mImageView.getBitmap(1080, 1920))
+                        }
+
+                        override fun onSurfaceTextureSizeChanged(
+                            surface: SurfaceTexture?,
+                            width: Int,
+                            height: Int
+                        ) {
+                        }
+
+                        override fun onSurfaceTextureAvailable(
+                            surface: SurfaceTexture?,
+                            width: Int,
+                            height: Int
+                        ) {
+                            isAvailable = true
+                        }
+                    }
+                    Thread {
+                        var i = 0
+                        while (recording || numberOfRotatedFrames < inputFrames.size - 1) {
+                            if (inputFrames.size > i) {
+                                threads[i % 4]!!.postTask(ARGBtoRGB(i))
                                 i++
                             }
                         }
@@ -253,21 +303,21 @@ class MainActivity : AppCompatActivity() {
                     2
                 }
                 2 -> {
-                    switchButton.text = "3"
-                    previewRollinShutter.z = 100f
+                    switchButton.text = "1"
+                    /*previewRollinShutter.z = 100f
                     mImageView.z = -100f
                     previewRollinShutter.visibility = View.VISIBLE
                     //mImageView.visibility = View.INVISIBLE
                     //mImageView.isOpaque = false
-                    startPreviewRollingShutter()
-                    3
+                    startPreviewRollingShutter()*/
+                    1
                 }
-                3 -> {
+                /*3 -> {
                     switchButton.text = "1"
                     mImageView.visibility = View.VISIBLE
                     previewRollinShutter.visibility = View.GONE
                     1
-                }
+                }*/
                 else -> {
                     0
                 }
@@ -304,7 +354,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {
-                //Log.e("aaaaa", "${capturedFrames%105}")
+
                 inputBufferBitmaps[capturedFrames%105] = mImageView.getBitmap(1080,1920)
                 capturedFrames++
             }
@@ -326,16 +376,25 @@ class MainActivity : AppCompatActivity() {
         val activityManager =  getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         var  memoryInfo = ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memoryInfo)
-        var lastFrame = compressedBitmaps.size
+        var lastFrame = 0
         handlerTask = Runnable {
             // do something
+            if(typeCapturing==1) {
+                timerText.text =
+                    "${(memoryInfo.availMem - 200000000 - memoryInfo.threshold) / (1920 * 1080 * 2 * (1 + inputFrames.size - lastFrame))}"
+                fpsText.text = "FPS: ${inputFrames.size - lastFrame}"
+                lastFrame = inputFrames.size
+            }
+            else {
+                timerText.text =
+                    "${(numOfStreams - numberOfRotatedFrames) / (1 + capturedFrames - lastFrame)}"
+                fpsText.text = "FPS: ${capturedFrames - lastFrame}"
+                lastFrame = capturedFrames
+            }
 
-            timerText.text = "${(memoryInfo.availMem-200000000-memoryInfo.threshold)/(1920*1080*2*(1+inputBitmaps.size-lastFrame))}"
-            fpsText.text = "FPS: ${inputBitmaps.size-lastFrame}"
-            lastFrame = inputBitmaps.size
             activityManager.getMemoryInfo(memoryInfo)
             Log.e("memory","avM: ${memoryInfo.availMem} treshM: ${memoryInfo.threshold} stop?: ${memoryInfo.availMem-200000000<memoryInfo.threshold} total: ${memoryInfo.totalMem}")
-            if(memoryInfo.availMem-200000000<memoryInfo.threshold && recording){
+            if((memoryInfo.availMem-200000000<memoryInfo.threshold || numberOfRotatedFrames+35>numOfStreams) && recording){
                 stopVideo()
                 handlerTask = null
             }
@@ -374,10 +433,18 @@ class MainActivity : AppCompatActivity() {
 
 class RotateFrames(private var frame:Int):Runnable {
     override fun run() {
-        inputBitmaps[frame]!!.rotate(270f).compress(Bitmap.CompressFormat.JPEG,90,compressedBitmaps[frame])
-        inputBitmaps[frame] = null
+        inputBitmaps[frame%200]!!.compress(Bitmap.CompressFormat.JPEG,70,compressedBitmaps[frame])
+        inputBitmaps[frame%200] = null
         numberOfRotatedFrames++
-        Log.e("compres","$numberOfRotatedFrames ${inputBitmaps.size}")
+        Log.e("compres","$numberOfRotatedFrames $capturedFrames")
+    }
+}
+
+class ARGBtoRGB(private var frame:Int):Runnable {
+    override fun run() {
+        inputFrames[frame] = inputFrames[frame]!!.copy(Bitmap.Config.RGB_565, false)
+        numberOfRotatedFrames++
+        Log.e("compres","$numberOfRotatedFrames ${inputFrames.size}")
     }
 }
 

@@ -17,9 +17,9 @@ import java.io.File
 import kotlin.properties.Delegates
 
 
-var inputBitmaps = arrayListOf<Bitmap?>()
-const val numOfStreams = 800
-var compressedBitmaps = Array<ByteArrayOutputStream?>(numOfStreams){ ByteArrayOutputStream() }
+
+
+
 private var mCameraManager: CameraManager? = null
 private val cam1 = 0
 private val cam2 = 1
