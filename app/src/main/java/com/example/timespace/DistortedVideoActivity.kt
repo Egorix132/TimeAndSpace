@@ -2,6 +2,7 @@ package com.example.timespace
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
@@ -29,8 +30,6 @@ const val stride = 45
 var width = 1080
 var height = 1920
 var FPS = 15f
-var realWidth = 0
-var realHeight = 0
 private lateinit var videoView: VideoView
 lateinit var progressBar: ProgressBar
 var numberOfOutputFrames = 1080
@@ -40,18 +39,15 @@ class DistortedVideoActivity : AppCompatActivity() {
 
     private lateinit var mCurrentFile: File
 
-
-    private var handler: Handler? = null
-    private var handlerTask: Runnable? = null
-
     private fun startProgressBar() {
-        handler = Handler()
-        handlerTask = Runnable {
-            // do something
-            progressBar.progress = (iterator+ numberOfRotatedFrames)*100/ (numberOfOutputFrames*typeCapturing)
-            handler!!.postDelayed(handlerTask!!, 500)
+        val handler = Handler()
+        val handlerTask = object : Runnable {
+            override fun run(){
+                progressBar.progress = (iterator + numberOfCompressedFrames) * 100 / (numberOfOutputFrames * typeCapturing)
+                handler.postDelayed(this, 500)
+            }
         }
-        handlerTask!!.run()
+        handlerTask.run()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,73 +55,27 @@ class DistortedVideoActivity : AppCompatActivity() {
         setContentView(R.layout.distorted_video)
         initialize()
 
-
-
         mCurrentFile = File(
             getExternalFilesDir(Environment.DIRECTORY_DCIM),
             "test${Date().time}.mp4")
-
-
-        /*realWidth = frames[0]!!.width
-        realHeight = frames[0]!!.height*/
-        //Log.e("real", "$realWidth $realHeight")
-        //Log.e("FPS",FPS.toString())
-
 
         Log.e("frames", "$capturedFrames")
         videoDuration = capturedFrames
 
         if(typeCapturing==2){
-            //FPS = (frames.size/ (originalVideoDuration/1000)).toFloat()
             width = 1920
             height = 1080
-            videoDuration = capturedFrames
-            numberOfOutputFrames = videoDuration-stride
+            numberOfOutputFrames = videoDuration - stride
         }
         else{
-            videoDuration = inputFrames.size
             kStrech = 1080/videoDuration
         }
-        Log.e("duration", videoDuration.toString())
-        //if(videoDuration%2 != 0) videoDuration--
-
 
         startProgressBar()
 
         EncodeFrames(mCurrentFile.absolutePath, "encoder", this).start()
 
         RenderFrames("encoder").start()
-
-        /*if(typeCapturing==1) {
-            while (indexWidth < 1080) {
-                if (iterator > indexWidth - 8) {
-                    idThread = indexWidth % 8
-                    threads[idThread]!!.postTask(ChangeTimeSpace(indexWidth))
-                    indexWidth++
-                }
-            }
-        }
-        else{
-            var i =0
-            while(i< videoDuration-stride){
-                if (iterator > i - 8) {
-                    idThread = i % 8
-                    threads[idThread]!!.postTask(RollingShutter(i))
-                    i++
-                }
-            }
-        }*/
-
-        /*var complite = false
-        while(!complite) {
-            progressBar.progress = iterator*100/1080
-            if(isRendered) {
-                progressBar.visibility = View.GONE
-                videoView.visibility = View.VISIBLE
-                watch()
-                complite= true
-            }
-        }*/
     }
 
 
@@ -137,7 +87,7 @@ class DistortedVideoActivity : AppCompatActivity() {
 }
 
 private fun watch(path:String){
-    videoView.setVideoURI(path.toUri()/*mCurrentFile.toUri()*/)
+    videoView.setVideoURI(path.toUri())
     videoView.start()
 }
 
@@ -185,11 +135,11 @@ class RenderThread(name: String) : HandlerThread(name) {
 }
 
 class EncodeFrames (private val path:String, name:String, private val activity: AppCompatActivity) : HandlerThread(name) {
-    var mEncoderConfig = HevcEncoderConfig(path,width,height, FPS,2000000)
+    var mEncoderConfig = HevcEncoderConfig(path, width, height, FPS,2000000)
     private val frameEncoder = FrameEncoder(mEncoderConfig)
     private val numberOfOutputFrames = when(typeCapturing){
         1 -> 1080
-        2 -> videoDuration- stride
+        2 -> videoDuration - stride
         else -> 0
     }
     override fun run() {
@@ -223,7 +173,7 @@ class RenderFrames (name:String) : HandlerThread(name) {
     }
     var i =0
     override fun run() {
-        while(!isRotated) {}
+        while(!AllFramesIsCompressed) {}
         if(typeCapturing==1) {
             while (i < numberOfOutputFrames) {
                 if (iterator > i - numTreads) {
@@ -250,3 +200,9 @@ class RenderFrames (name:String) : HandlerThread(name) {
         }
     }
 }
+
+fun Bitmap.rotate(degrees: Float): Bitmap {
+    val matrix = Matrix().apply { postRotate(degrees) }
+    return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+}
+
